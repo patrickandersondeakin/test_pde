@@ -1,6 +1,5 @@
 name: Grant Write Access for Passed Students
 
-# Trigger whenever a new JSON file is added to quiz-results folder
 on:
   push:
     paths:
@@ -11,41 +10,40 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repo
       - uses: actions/checkout@v3
 
-      # Step 2: Parse JSON and add collaborator
       - name: Process latest quiz submission
         run: |
-          # Get the latest file
+          # Get latest JSON file
           FILE=$(ls quiz-results | sort | tail -n 1)
           echo "Processing $FILE"
 
-          # Read file content
-          JSON=$(cat quiz-results/$FILE)
+          # Read JSON directly
+          JSON=$(cat "quiz-results/$FILE")
 
-          # Extract github_username and studentID
+          # Use jq to extract values
           USERNAME=$(echo "$JSON" | jq -r '.github_username')
           STUDENTID=$(echo "$JSON" | jq -r '.studentID')
 
           echo "Username: $USERNAME"
           echo "Student ID: $STUDENTID"
 
-          # Step 3: Basic whitelist check (spam protection)
+          # Basic whitelist (spam protection)
           if [[ "$STUDENTID" != s* ]]; then
-            echo "Student ID invalid or suspicious, aborting"
+            echo "Student ID invalid, aborting"
             exit 1
           fi
 
-          # Optional: additional GitHub username validation
+          # GitHub username validation
           if ! [[ "$USERNAME" =~ ^[a-zA-Z0-9-]+$ ]]; then
             echo "Invalid GitHub username, aborting"
             exit 1
           fi
 
-          # Step 4: Add collaborator
+          # Add collaborator via GitHub API
           curl -X PUT \
             -H "Authorization: token ${{ secrets.PDE_ADMIN_PAT }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/patrickandersondeakin/test_pde/collaborators/$USERNAME \
             -d '{"permission": "push"}'
+
