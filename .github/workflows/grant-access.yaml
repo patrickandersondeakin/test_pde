@@ -1,0 +1,53 @@
+name: Grant Write Access for Passed Students
+
+# Trigger whenever a new JSON file is added to quiz-results folder
+on:
+  push:
+    paths:
+      - "quiz-results/*.json"
+
+jobs:
+  grant_access:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout repo
+      - uses: actions/checkout@v3
+
+      # Step 2: Get latest submission file
+      - name: Get latest quiz JSON
+        id: read
+        run: |
+          FILE=$(ls quiz-results | sort | tail -n 1)
+          echo "file=$FILE" >> $GITHUB_OUTPUT
+          CONTENT=$(cat quiz-results/$FILE)
+          echo "json=$CONTENT" >> $GITHUB_OUTPUT
+
+      # Step 3: Parse JSON for github_username and studentID
+      - name: Parse submission
+        id: parse
+        run: |
+          JSON='${{ steps.read.outputs.json }}'
+          USERNAME=$(echo $JSON | jq -r '.github_username')
+          STUDENTID=$(echo $JSON | jq -r '.studentID')
+          echo "username=$USERNAME" >> $GITHUB_OUTPUT
+          echo "studentID=$STUDENTID" >> $GITHUB_OUTPUT
+
+      # Step 4: Basic whitelist check (optional spam protection)
+      - name: Whitelist validation
+        id: whitelist
+        run: |
+          # Example: only allow student IDs starting with 's'
+          if [[ "${{ steps.parse.outputs.studentID }}" != s* ]]; then
+            echo "Student ID invalid, aborting"
+            exit 1
+          fi
+
+      # Step 5: Grant write access
+      - name: Add as collaborator
+        run: |
+          curl -X PUT \
+            -H "Authorization: token ${{ secrets.PDE_ADMIN_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/patrickandersondeakin/test_pde/collaborators/${{ steps.parse.outputs.username }}_
+
