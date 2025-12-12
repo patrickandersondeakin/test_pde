@@ -7,8 +7,7 @@ on:
       - "quiz-results/*.json"
 
 permissions:
-  contents: write        # Required for pushing updates to the repo
-  administration: write  # Required for adding collaborators via API
+  contents: write   # Only needed for committing updates
 
 jobs:
   process_quiz:
@@ -37,20 +36,15 @@ jobs:
           NAME=$(jq -r '.name' "$FILE")
           TIMESTAMP=$(jq -r '.timestamp' "$FILE")
 
-          echo "Username: $USERNAME"
-          echo "StudentID: $STUDENTID"
-          echo "Name: $NAME"
-          echo "Timestamp: $TIMESTAMP"
-
           echo "USERNAME=$USERNAME" >> $GITHUB_ENV
           echo "STUDENTID=$STUDENTID" >> $GITHUB_ENV
           echo "NAME=$NAME" >> $GITHUB_ENV
           echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
 
-      - name: Validate studentID and username (anti-spam)
+      - name: Validate studentID and username
         run: |
           if [[ "$STUDENTID" != s* ]]; then
-            echo "Invalid studentID — must begin with 's'. Aborting."
+            echo "Invalid student ID — must begin with 's'. Aborting."
             exit 1
           fi
 
@@ -71,19 +65,17 @@ jobs:
         run: |
           DASH_FILE="STUDENT_ACCESS.md"
 
-          # Create dashboard file if missing
           if [ ! -f "$DASH_FILE" ]; then
             echo "# Student Access Dashboard" > "$DASH_FILE"
             echo "| Timestamp | Name | GitHub Username | StudentID |" >> "$DASH_FILE"
             echo "|-----------|------|------------------|-----------|" >> "$DASH_FILE"
           fi
 
-          # Append a new line for this student
           echo "| $TIMESTAMP | $NAME | $USERNAME | $STUDENTID |" >> "$DASH_FILE"
 
-          # Commit and push dashboard update
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "$DASH_FILE"
           git commit -m "Update STUDENT_ACCESS.md with $USERNAME"
           git push
+
